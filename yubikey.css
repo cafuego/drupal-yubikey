@@ -18,7 +18,10 @@ html.js #user-login div#edit-yubikey-otp-wrapper {
 
 html.js #user-login-form li.yubikey-link,
 html.js #user-login li.yubikey-link {
-  display : block;
+  display: block;
+  background-position: left center;
+  margin-left: 0;
+  padding-left: 22px;
 }
 
 #user-login-form li.yubikey-link,
@@ -28,7 +31,13 @@ html.js #user-login li.yubikey-link {
   display: none;
 }
 
+#user-login-form li.yubikey-link a,
+#user-login li.yubikey-link a {
+  background: transparent url("yubico-icon-small.gif") no-repeat 0 2px;
+  padding: 0 20px;
+}
+
 #user-login-form li.yubikey-link,
 #user-login-form li.yubikey-user-link {
-  text-align : left;
+  text-align: left;
 }
