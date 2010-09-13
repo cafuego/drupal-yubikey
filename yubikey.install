@@ -1,0 +1,42 @@
+<?php
+// $Id$
+/**
+ * Implementation of hook_requirements()
+ *
+ * Check that curl functions exist or refuse to install. This stops
+ * users without php-curl seeing a WSOD.
+ */
+function yubikey_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+  if ($phase == 'install') {
+    if (!function_exists('curl_init')) {
+      $requirements['curl_init'] = array(
+        'title' => $t('cURL Library'),
+        'value' => $t('Not installed'),
+        'description' => $t('cURL is a library that is required by Yubikey.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+  }
+
+  else if ($phase == 'runtime') {
+    if (!function_exists('curl_init')) {
+      $requirements['curl_init'] = array(
+        'title' => $t('cURL Library'),
+        'value' => $t('Not installed'),
+        'description' => $t('cURL is a library that is required by Yubikey.'),
+        'severity' => REQUIREMENT_ERROR,
+      );
+    }
+    else {
+      $curl_version = curl_version();
+      $requirements['curl_init'] = array(
+        'title' => $t('cURL Library'),
+        'value' => $t('PHP cURL Library !version', array('!version' => $curl_version['version'])),
+        'severity' => REQUIREMENT_OK,
+      );
+    }
+  }
+  return $requirements;
+}

@@ -18,6 +18,11 @@ function yubikey_validate($otp, &$errstr) {
     return FALSE;
   }
 
+  if (!function_exists('curl_init')) {
+    drupal_set_message(t('A required PHP library is missing. Check the !status_report.', array('!status_report', l('status report', 'admin/reports/status'))), 'error');
+    return t('An error has occurred.');
+  }
+
   $api_key = variable_get('yubikey_apikey', NULL);
   $id      = variable_get('yubikey_apiid', NULL);
   $timeout = variable_get('yubikey_timeout', 10);
