@@ -132,7 +132,7 @@ function yubikey_admin_page() {
   $form['yubikey'] = array(
     '#type'  => 'fieldset',
     '#title' => t('YubiKey Sitewide Settings'),
-    '#description' => t('You can get your API Key and API ID from') .' '. l(t('Yubico'), 'https://api.yubico.com/yms/') .'.',
+    '#description' => t('You can get your API Key and API ID from') .' '. l(t('Yubico'), 'https://upgrade.yubico.com/getapikey/') .'.',
     '#tree'  => TRUE
   );
   $form['yubikey']['enable'] = array(
