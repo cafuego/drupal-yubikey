@@ -1,0 +1,5 @@
+; $Id: yubikey.info,v 1.1 2008/12/31 07:01:50 rubinj Exp $
+name        = YubiKey
+description = "Allows users to log into your site using YubiKey."
+package     = Authentication
+core        = 6.x

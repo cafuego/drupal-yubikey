@@ -1,0 +1,152 @@
+<?php
+
+// $Id: yubikey.module,v 1.1.2.1 2009/02/04 06:11:22 rubinj Exp $
+
+/*
+ * @file
+ * Authentication module that facilitates Yubikey logins
+ */
+
+function yubikey_menu() {
+  $items['user/login/yubikey'] = array(
+    'title'           => t('Yubikey Password Login'),
+    'page callback'   => 'drupal_get_form',
+    'page arguments'  => array('yubikey_password_page'),
+    'access callback' => 'user_is_anonymous',
+    'type'            => MENU_CALLBACK,
+    'file'            => 'yubikey.pages.inc'
+  );
+  $items['user/%user/yubikey'] = array(
+    'title'            => t('YubiKey identities'),
+    'page callback'    => 'yubikey_user_identities',
+    'page arguments'   => array(1),
+    'access callback'  => 'yubikey_user_edit_access',
+    'access arguments' => array(1),
+    'type'             => MENU_LOCAL_TASK,
+    'file'             => 'yubikey.pages.inc'
+  );
+  $items['user/%user/yubikey/delete'] = array(
+    'title'            => t('Delete YubiKey'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('yubikey_user_delete_form', 1),
+    'access callback'  => 'yubikey_user_edit_access',
+    'access arguments' => array(1),
+    'type'             => MENU_CALLBACK,
+    'file'             => 'yubikey.pages.inc'
+  );
+  $items['admin/settings/yubikey'] = array(
+    'title'            => t('YubiKey'),
+    'description'      => t('Configure sitewide YubiKey settings'),
+    'page callback'    => 'drupal_get_form',
+    'page arguments'   => array('yubikey_admin_page'),
+    'access arguments' => array('administer yubikey'),
+    'type'             => MENU_NORMAL_ITEM,
+    'file'             => 'yubikey.pages.inc'
+  );
+  return $items;
+}
+
+function yubikey_user_edit_access($account) {
+  return variable_get('yubikey_enabled', FALSE) && user_edit_access($account);
+}
+
+function yubikey_perm() {
+  return array('administer yubikey');
+}
+
+function yubikey_help($path, $arg) {
+
+  $output = '';
+
+  switch ($path) {
+    case 'user/%/yubikey':
+      $output = '<p>'. t('This site supports <a href="@yubico-com">YubiKey</a>, a secure way to log into many websites using a cryptographically secure usb token. YubiKey can ease the necessity of remembering many usernames and passwords for many websites.', array('@yubico-com' => url('http://www.yubico.com'))) .'</p>';
+      $output .= '<p>'. t('To use YubiKey you must first possess a YubiKey which you can order from <a href="@yubico-order">here</a>.', array('@yubico-order' => url('http://www.yubico.com/order/index/'))) .'</p>';
+      $output .= '<p>'. t('If you already have a YubiKey, simply enter an OTP (One Time Password) by selecting the textfield below and holding the button on your YubiKey until it types out an OTP. Next time you login, you will be able to use your YubiKey instead of a regular username and password. You can have multiple YubiKeys if you like; just keep adding them here.') .'</p>';
+      $output .= '<p>'. t('For additional security, you may also require that your password be entered when logging in with your YubiKey. This prevents a thief who stole your YubiKey from logging in without your password, but increases the complexity of the log in process.') .'</p>';
+      break;
+    case "admin/help#yubikey":
+      $output = '<p>'. t('YubiKey a secure method for log into many websites using a cryptographically secure usb token. It does not require special software, and since it does not generate the same OTP (One Time Password) more than once, nothing is shared among associated sites.') .'</p>';
+      $output .= '<p>'. t('Users can assign one or more YubiKeys to an existing account, and log in using a YubiKey. This offers additional security to the users even over insecure connections.') .'</p>';
+      $output .= '<p>'. t('YubiKeys work as follows: The device registers itself as a USB keyboard so it works with any operating system. When the YubiKey button is clicked, it "types" out an OTP. The OTP is a ModHex encoded string consisting of a unique id and an AES128 encrypted string. The encrypted string contains: A static secret device id, session (number of times the device has been inserted into an active USB port) count. A timestamp (based on an 8Hz clock started from when the device was inserted). A counter of the number of OTPs generated since the device was inserted. A 2 byte pseudo-random number. And a CRC checksum. The ModHex string is sent to the YubiKey authentication servers where it is decrypted and checked that the OTP is valid, that the session is not older than a previous session, that the timestamp is not older than a previous timestamp for this session and that the session use counter is not smaller than a previous OTP for this session.') .'</p>';
+      $output .= '<p>'. t('More information on YubiKey is available at <a href="@yubico-com">yubico.com</a>.', array('@yubico-com' => url('http://www.yubico.com'))) .'</p>';
+      $output .= '<p>'. t('For more information, see the online handbook entry for <a href="@handbook">YubiKey module</a>.', array('@handbook' => 'http://drupal.org/handbook/modules/yubikey')) .'</p>';
+      break;
+  }
+
+  return $output;
+
+}
+
+function yubikey_form_alter(&$form, $form_state, $form_id) {
+  if (!variable_get('yubikey_enabled', FALSE)) {
+    return;
+  }
+  if ($form_id == 'user_login_block' || $form_id == 'user_login') {
+    drupal_add_css(drupal_get_path('module', 'yubikey') .'/yubikey.css', 'module');
+    drupal_add_js(drupal_get_path('module', 'yubikey') .'/yubikey.js');
+    if (!empty($form_state['post']['yubikey_otp'])) {
+      $form['name']['#required'] = FALSE;
+      $form['pass']['#required'] = FALSE;
+      unset($form['#submit']);
+      $form['#validate'] = array('yubikey_login_validate');
+    }
+    $items = array();
+    $items[] = array(
+      'data'  => l(t('Log in using YubiKey'), '#'),
+      'class' => 'yubikey-link'
+    );
+    $items[] = array(
+      'data'  => l(t('Cancel YubiKey login'), '#'),
+      'class' => 'yubikey-user-link'
+    );
+    $form['yubikey_links'] = array(
+      '#value'  => theme('item_list', $items),
+      '#weight' => 1
+    );
+    $form['links']['#weight'] = 2;
+    $form['yubikey_otp'] = array(
+      #'#type'        => 'textfield',
+      '#type'        => 'password',
+      '#title'       => t('Log in using YubiKey'),
+      '#size'        => ($form_id == 'user_login') ? 58 : 13,
+      '#maxlength'   => 255,
+      '#weight'      => -1,
+      '#description' => l(t('What is YubiKey?'), 'http://www.yubico.com', array('external' => TRUE))
+    );
+  }
+  return $form;
+}
+
+function yubikey_login_validate($form, &$form_state) {
+  module_load_include('inc', 'yubikey');
+  $otp = $form_state['values']['yubikey_otp'];
+  $key_id = yubikey_keyid($otp);
+  $account = user_external_load($key_id);
+  if (!isset($account->uid)) {
+    form_set_error('yubikey_otp', t('Sorry, that is not a valid YubiKey OTP or it is not yet associated with an account.'));
+    return FALSE;
+  }
+  if (yubikey_validate($otp, $errstr)) {
+    if (variable_get('yubikey_reqpass_'. $account->uid, TRUE)) {
+      $_SESSION['yubikey']['name'] = $account->name;
+      unset($_REQUEST['destination']);
+      drupal_goto('user/login/yubikey', drupal_get_destination());
+    }
+    else {
+      $form_state['values']['name'] = $account->name;
+      user_login_name_validate($form, $form_state);
+      if (form_get_errors()) {
+        return FALSE;
+      }
+      global $user;
+      $user = $account;
+      user_authenticate_finalize($form_state['values']);
+      return TRUE;
+    }
+  }
+  else {
+    form_set_error('yubikey_otp', t('Sorry, YubiKey OTP validation failed with message:') .' '. $errstr);
+    return FALSE;
+  }
+}
